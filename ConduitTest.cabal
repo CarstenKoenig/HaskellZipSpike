@@ -1,0 +1,29 @@
+name:                ConduitTest
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/CarstenKoenig/new-template#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Carsten König
+maintainer:          Carsten@gettingsharper.de
+copyright:           2017 Carsten König
+category:            Console
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+executable conduitTest
+  hs-source-dirs:      ./
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , aeson
+                     , containers
+                     , conduit-combinators
+                     , zip
+                     , path
+                     , path-io
+                     , text
+                     , yaml
+  default-language:    Haskell2010
