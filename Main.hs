@@ -12,6 +12,7 @@ module Main where
 
 import CMark (Url, Node(..), NodeType(..))
 import qualified CMark as MD
+import Codec.Archive.Zip (ZipArchive, EntrySelector)
 import qualified Codec.Archive.Zip as Zip
 import Control.Monad (mapM, mapM_, (>=>))
 import qualified Data.Aeson as Aeson
@@ -34,9 +35,15 @@ main = do
   target <- P.parseRelFile "Zip.zip"
 
   putStrLn "looking for content "
-  
-  putStrLn =<< maybe "not found" show <$> getZipDescription target
-  putStrLn =<< show <$> Zip.withArchive target allMarkdownUris
+
+
+  (description, images) <- Zip.withArchive target $ do
+    desc <- getZipDescription
+    imgs <- allMarkdownUris
+    return (desc, imgs)
+
+  putStrLn $ maybe "not found" show description
+  print images
   
   putStrLn "done"
 
@@ -50,23 +57,22 @@ zipCurrentFolder = do
   Zip.createArchive target $ mapM_ (Zip.loadEntry Zip.BZip2 selectFile) files
 
 
-getZipDescription :: Path Rel File -> IO (Maybe BlogEntryDescription)
-getZipDescription archivePath = do
-  Zip.withArchive archivePath $ do
+getZipDescription :: ZipArchive (Maybe BlogEntryDescription)
+getZipDescription = do
     yamls <- findArchiveFiles ".yaml"
     case yamls of
       []           -> return Nothing
       selector : _ -> Yaml.decode <$> Zip.getEntry selector
   
 
-findArchiveFiles :: String -> Zip.ZipArchive [Zip.EntrySelector]
+findArchiveFiles :: String -> ZipArchive [EntrySelector]
 findArchiveFiles  extension = do
   Map.keys . Map.filterWithKey hasExtension <$> Zip.getEntries
   where
     hasExtension sel _ = P.fileExtension (Zip.unEntrySelector sel) == extension
 
 
-allMarkdownUris :: Zip.ZipArchive [Url]
+allMarkdownUris :: ZipArchive [Url]
 allMarkdownUris = do
   selectors <- findArchiveFiles ".md"
   concat <$> mapM (fmap extractImageUris . getMarkdownContent) selectors
@@ -80,7 +86,7 @@ extractImageUris =
     collectUris (Node _ _ children)             = concatMap collectUris children
 
   
-getMarkdownContent :: Zip.EntrySelector -> Zip.ZipArchive Text
+getMarkdownContent :: EntrySelector -> ZipArchive Text
 getMarkdownContent selector = Enc.decodeUtf8 <$> Zip.getEntry selector
 
 
