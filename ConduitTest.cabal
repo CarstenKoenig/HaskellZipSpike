@@ -21,6 +21,7 @@ executable conduitTest
                      , aeson
                      , containers
                      , conduit-combinators
+                     , cmark
                      , zip
                      , path
                      , path-io

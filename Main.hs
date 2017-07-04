@@ -5,22 +5,26 @@
 -- Path https://hackage.haskell.org/package/path-0.6.0/docs/Path.html
 -- Path IO https://hackage.haskell.org/package/path-io-1.3.1/docs/Path-IO.html
 -- Codec.Archive.Zip https://hackage.haskell.org/package/zip-0.1.11/docs/Codec-Archive-Zip.html#t:EntrySelector
+-- CMark (Markdownparsing) https://hackage.haskell.org/package/cmark-0.5.5.1/docs/CMark.html
 
 
 module Main where
 
+import CMark (Url, Node(..), NodeType(..))
+import qualified CMark as MD
 import qualified Codec.Archive.Zip as Zip
-import Control.Monad (mapM_, (>=>))
+import Control.Monad (mapM, mapM_, (>=>))
 import qualified Data.Aeson as Aeson
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Text (Text)
+import qualified Data.Text.Encoding as Enc
 import Data.Yaml (ToJSON(..), FromJSON(..))
 import qualified Data.Yaml as Yaml
 import GHC.Generics
 import Path (Path, Rel, Abs, File)
 import qualified Path as P
 import qualified Path.IO as PIO
-import Data.Map (Map)
-import qualified Data.Map as Map
 
 -- Zipt alle Verzeichnisse und Unterdatein
 
@@ -32,6 +36,8 @@ main = do
   putStrLn "looking for content "
   
   putStrLn =<< maybe "not found" show <$> getZipDescription target
+  putStrLn =<< show <$> Zip.withArchive target allMarkdownUris
+  
   putStrLn "done"
 
 
@@ -58,8 +64,26 @@ findArchiveFiles  extension = do
   Map.keys . Map.filterWithKey hasExtension <$> Zip.getEntries
   where
     hasExtension sel _ = P.fileExtension (Zip.unEntrySelector sel) == extension
-    
+
+
+allMarkdownUris :: Zip.ZipArchive [Url]
+allMarkdownUris = do
+  selectors <- findArchiveFiles ".md"
+  concat <$> mapM (fmap extractImageUris . getMarkdownContent) selectors
+
+extractImageUris :: Text -> [Url]
+extractImageUris =
+  collectUris . MD.commonmarkToNode []
+  where
+    collectUris :: Node -> [Url]
+    collectUris (Node _ (IMAGE url _) children) = url : concatMap collectUris children
+    collectUris (Node _ _ children)             = concatMap collectUris children
+
   
+getMarkdownContent :: Zip.EntrySelector -> Zip.ZipArchive Text
+getMarkdownContent selector = Enc.decodeUtf8 <$> Zip.getEntry selector
+
+
 
 data BlogEntryDescription =
   BlogEntryDescription
