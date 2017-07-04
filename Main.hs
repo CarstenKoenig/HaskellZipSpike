@@ -47,24 +47,18 @@ zipCurrentFolder = do
 getZipDescription :: Path Rel File -> IO (Maybe BlogEntryDescription)
 getZipDescription archivePath = do
   Zip.withArchive archivePath $ do
-    found <- findFirstYaml <$> Zip.getEntries
-    case found of
-      Nothing -> return Nothing
-      Just fileName -> do
-        selector <- Zip.mkEntrySelector fileName
-        foundInArchive <- Zip.doesEntryExist selector
-        if not foundInArchive
-           then return Nothing
-           else Yaml.decode <$> Zip.getEntry selector
+    yamls <- findArchiveFiles ".yaml"
+    case yamls of
+      []           -> return Nothing
+      selector : _ -> Yaml.decode <$> Zip.getEntry selector
   
 
-findFirstYaml :: Map Zip.EntrySelector Zip.EntryDescription
-              -> Maybe (Path Rel File)
-findFirstYaml entries =
-  Zip.unEntrySelector . (fst . fst)
-  <$> Map.minViewWithKey (Map.filterWithKey isYaml entries)
+findArchiveFiles :: String -> Zip.ZipArchive [Zip.EntrySelector]
+findArchiveFiles  extension = do
+  Map.keys . Map.filterWithKey hasExtension <$> Zip.getEntries
   where
-    isYaml sel _ = P.fileExtension (Zip.unEntrySelector sel) == ".yaml"
+    hasExtension sel _ = P.fileExtension (Zip.unEntrySelector sel) == extension
+    
   
 
 data BlogEntryDescription =
